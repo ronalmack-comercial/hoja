@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6f4a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Hoja de cálculo</title>
+<style>
+  :root { --verde:#1f6f4a; --rojo:#b3261e; --borde:#d0d7d2; --fondo:#f5f7f6; }
+  * { box-sizing: border-box; }
+  [hidden] { display:none !important; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--fondo); color:#1b1b1b; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+  header { background:var(--verde); color:#fff; padding:14px 16px; }
+  header h1 { margin:0; font-size:1.2rem; }
+  .info { font-size:.9rem; opacity:.95; margin-top:4px; }
+  main { padding:12px; max-width:820px; margin:0 auto; }
+  h3 { margin:22px 0 8px; font-size:1rem; }
+  input[type=text], input[type=number], select { width:100%; padding:8px; border:1px solid var(--borde); border-radius:6px; font-size:16px; background:#fff; }
+  /* Quitar las flechitas de los campos numéricos */
+  input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  .liquido { background:#fff; border:1px solid var(--borde); border-radius:8px; padding:8px 12px; margin-bottom:12px; display:flex; align-items:center; gap:8px; width:100%; flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; font-size:.9rem; font-variant-numeric:tabular-nums; }
+  .liquido label { font-weight:600; }
+  .liquido input { width:96px; padding:6px; text-align:right; flex-shrink:0; }
+  .liquido .queda { font-weight:700; color:var(--verde); }
+  .liquido .hoja { color:#444; font-size:.85rem; }
+  .table-wrap { overflow-x:auto; background:#fff; border:1px solid var(--borde); border-radius:8px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:4px 6px; border-bottom:1px solid var(--borde); text-align:left; }
+  th { background:#e9efec; font-size:.8rem; white-space:normal; line-height:1.2; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; font-size:.9rem; }
+  td input, td select { font-size:.9rem; padding:5px 6px; }
+  td.desc input { width:11em; }
+  td.qty input { width:4.5em; text-align:right; }
+  td.precio input, td.precio select { width:5em; text-align:right; }
+  .mas { margin-left:6px; width:24px; height:24px; font-size:1rem; vertical-align:middle; }
+  th.acc, td.acc { width:1%; white-space:nowrap; padding-left:2px; padding-right:2px; }
+  .mas { background:var(--verde); color:#fff; border:none; border-radius:6px; width:30px; height:30px; font-size:1.2rem; line-height:1; cursor:pointer; margin-left:4px; vertical-align:middle; }
+  .del { background:none; border:none; color:var(--rojo); font-size:1.2rem; cursor:pointer; padding:4px 8px; }
+  .totales { margin:12px 0; background:#fff; border:1px solid var(--borde); border-radius:8px; padding:8px 12px; width:fit-content; min-width:200px; max-width:100%; font-variant-numeric:tabular-nums; }
+  .totales .gran { display:flex; justify-content:space-between; font-weight:700; font-size:1.2rem; }
+  .acciones { display:flex; flex-wrap:wrap; gap:8px; }
+  button.boton { padding:10px 14px; border-radius:8px; border:1px solid var(--verde); background:#fff; color:var(--verde); font-size:.95rem; cursor:pointer; }
+  button.principal { background:var(--verde); color:#fff; }
+  button.peligro { border-color:var(--rojo); color:var(--rojo); }
+  button.pequeno { padding:5px 10px; font-size:.85rem; }
+  .guardado { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; background:#fff; border:1px solid var(--borde); border-radius:8px; padding:8px 10px; margin-bottom:6px; }
+  .guardado small { color:#555; }
+  .nota { font-size:.85rem; color:#555; margin-top:12px; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:16px; z-index:10; }
+  .caja { background:#fff; border-radius:12px; padding:20px; width:100%; max-width:380px; }
+  .caja h2 { margin:0 0 8px; font-size:1.2rem; color:var(--verde); }
+  .caja p { margin:0 0 12px; color:#444; }
+  .caja button { width:100%; margin-top:12px; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Hoja de cálculo</h1>
+  <div class="info" id="info"></div>
+</header>
+
+<div id="modal" class="modal" hidden>
+  <div class="caja">
+    <h2>¿Quién registra?</h2>
+    <p>Escribe tu nombre o el del cliente para empezar. La fecha y la hora se anotan solas.</p>
+    <input type="text" id="nombre-in" placeholder="Nombre" autocomplete="off">
+    <button id="comenzar" class="boton principal" disabled>Comenzar</button>
+  </div>
+</div>
+
+<main id="principal" hidden>
+  <section class="liquido">
+    <label for="liq-inicial">Líquido efectivo</label>
+    <input type="number" id="liq-inicial" min="0" step="any" inputmode="decimal" placeholder="0.00">
+    <span class="queda" id="liq-queda">Te queda Q 0.00</span>
+    <span class="hoja" id="liq-hoja"></span>
+  </section>
+
+  <div class="table-wrap">
+    <table>
+      <thead id="cabecera"></thead>
+      <tbody id="filas"></tbody>
+    </table>
+  </div>
+
+  <div class="totales">
+    <div class="gran"><span>Total</span><span id="total">Q 0.00</span></div>
+  </div>
+
+  <div class="acciones">
+    <button id="agregar" class="boton principal">+ Agregar fila</button>
+    <button id="nuevo" class="boton">Nuevo registro</button>
+    <button id="descargar" class="boton">Descargar CSV</button>
+    <button id="borrar" class="boton peligro">Borrar cantidades</button>
+    <button id="ver-registros" class="boton">Registro</button>
+  </div>
+
+  <section id="seccion-registros" hidden>
+    <h3>Todos los registros guardados en este teléfono</h3>
+    <div id="guardados"></div>
+    <p class="nota">Al tocar "Nuevo registro", el registro actual se guarda automáticamente. Los registros se guardan solo en este teléfono y navegador. Si cambias de teléfono o borras los datos del navegador, se pierden. Descarga el CSV para respaldarlos.</p>
+  </section>
+</main>
+
+<script>
+  const CLAVE = "hoja_registros";
+  const CLAVE_LIQ = "hoja_liquido";
+  const LISTA_INICIAL = [
+    { material: "lata", precio: 6 },
+    { material: "aluminio", precio: 4, opciones: [4, 3, 2, 1] },
+    { material: "papel", precio: 0.15 },
+    { material: "vidrio", precio: 0.15 },
+    { material: "HIERRO PRIMERA", precio: 0.25 },
+    { material: "CHATARRA SEGUNDA", precio: 0.20 },
+    { material: "cobre", precio: 28 },
+    { material: "bronce", precio: 13 }
+  ];
+
+  let registro = null;   // { id, nombre, fecha, hora }
+  let numCols = 1;
+  let filas = [];
+
+  const $ = (id) => document.getElementById(id);
+  const n = (v) => {
+    const x = parseFloat(v);
+    return isFinite(x) ? x : 0;
+  };
+  const fmt = (x) => x.toFixed(2);
+  const suma = (arr) => arr.reduce((a, b) => a + n(b), 0);
+  const escAttr = (t) => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+  function ahora() {
+    const d = new Date();
+    return {
+      fecha: d.toLocaleDateString("es-GT"),
+      hora: d.toLocaleTimeString("es-GT", { hour: "2-digit", minute: "2-digit" })
+    };
+  }
+
+  function totalActual() {
+    return filas.reduce((acc, f) => acc + suma(f.cantidades) * n(f.precio), 0);
+  }
+
+  function hayCantidades() {
+    return filas.some((f) => f.cantidades.some((c) => String(c).trim() !== ""));
+  }
+
+  function leerRegistros() {
+    try {
+      return JSON.parse(localStorage.getItem(CLAVE) || "[]");
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function escribirRegistros(datos) {
+    try {
+      localStorage.setItem(CLAVE, JSON.stringify(datos));
+    } catch (e) {
+      alert("No se pudo guardar en este teléfono. Descarga el CSV para no perder los datos.");
+    }
+  }
+
+  // Guarda el registro actual (crea uno nuevo o actualiza el abierto).
+  function guardarActual() {
+    const datos = leerRegistros();
+    const reg = {
+      id: registro.id || Date.now(),
+      nombre: registro.nombre,
+      fecha: registro.fecha,
+      hora: registro.hora,
+      numCols,
+      filas: JSON.parse(JSON.stringify(filas)),
+      total: totalActual()
+    };
+    const idx = datos.findIndex((r) => r.id === reg.id);
+    if (idx >= 0) datos[idx] = reg; else datos.push(reg);
+    registro.id = reg.id;
+    escribirRegistros(datos);
+  }
+
+  // Líquido: efectivo inicial menos los totales de hoy guardados, sin contar la hoja abierta.
+  function renderLiquido() {
+    if (!registro) return;
+    const hoy = ahora().fecha;
+    const inicial = n($("liq-inicial").value);
+    const movs = leerRegistros().filter(
+      (r) => r.fecha === hoy && String(r.id) !== String(registro.id)
+    );
+    const saldo = movs.reduce((acc, r) => acc - n(r.total), inicial);
+    $("liq-queda").textContent = "Te queda Q " + fmt(saldo);
+
+    const pendiente = totalActual();
+    $("liq-hoja").textContent =
+      `${registro.nombre}: − Q ${fmt(pendiente)} → quedaría Q ${fmt(saldo - pendiente)}`;
+  }
+
+  function mostrarInfo() {
+    $("info").textContent = `${registro.nombre} · ${registro.fecha} ${registro.hora}`;
+  }
+
+  function render() {
+    const cabeceraCant = Array.from({ length: numCols }, (_, j) => {
+      const boton = j === numCols - 1
+        ? ` <button id="mas" class="mas" title="Agregar columna de cantidad" aria-label="Agregar columna de cantidad">+</button>`
+        : "";
+      return `<th>Cantidad ${j + 1}${boton}</th>`;
+    }).join("");
+    $("cabecera").innerHTML = `<tr>
+      <th>Material</th>${cabeceraCant}
+      <th>Precio unit.</th><th>Subtotal</th><th class="acc"></th></tr>`;
+
+    const cuerpo = $("filas");
+    cuerpo.innerHTML = "";
+    filas.forEach((f, i) => {
+      const tr = document.createElement("tr");
+      const celdasCant = f.cantidades.map((c, j) =>
+        `<td class="qty"><input type="number" min="0" step="any" inputmode="decimal" data-i="${i}" data-j="${j}" value="${escAttr(c)}"></td>`
+      ).join("");
+      const celdaPrecio = f.opciones
+        ? `<select data-i="${i}" data-c="precio">${f.opciones.map((o) =>
+            `<option value="${o}" ${o === f.precio ? "selected" : ""}>${o}</option>`).join("")}</select>`
+        : `<input type="number" min="0" step="any" inputmode="decimal" data-i="${i}" data-c="precio" value="${f.precio}">`;
+      tr.innerHTML = `
+        <td class="desc"><input type="text" data-i="${i}" data-c="material" placeholder="Material" value="${escAttr(f.material)}"></td>
+        ${celdasCant}
+        <td class="precio">${celdaPrecio}</td>
+        <td class="num" id="sub-${i}"></td>
+        <td class="acc"><button class="del" data-del="${i}" title="Eliminar fila" aria-label="Eliminar fila">✕</button></td>`;
+      cuerpo.appendChild(tr);
+    });
+    recalcular();
+  }
+
+  function recalcular() {
+    filas.forEach((f, i) => {
+      const celda = $("sub-" + i);
+      if (celda) celda.textContent = fmt(suma(f.cantidades) * n(f.precio));
+    });
+    $("total").textContent = "Q " + fmt(totalActual());
+    renderLiquido();
+  }
+
+  function mostrarGuardados() {
+    const datos = leerRegistros().slice().reverse();
+    const cont = $("guardados");
+    if (datos.length === 0) {
+      cont.innerHTML = `<p class="nota">Todavía no hay registros guardados.</p>`;
+      return;
+    }
+    cont.innerHTML = datos.map((r) => `
+      <div class="guardado">
+        <div><strong>${escAttr(r.nombre)}</strong><br><small>${escAttr(r.fecha)} ${escAttr(r.hora)} · Q ${fmt(n(r.total))}</small></div>
+        <div>
+          <button class="boton pequeno" data-cargar="${r.id}">Abrir</button>
+          <button class="boton pequeno peligro" data-eliminar="${r.id}">Eliminar</button>
+        </div>
+      </div>`).join("");
+    renderLiquido();
+  }
+
+  function mostrarPantalla() {
+    mostrarInfo();
+    render();
+    $("principal").hidden = false;
+    $("modal").hidden = true;
+  }
+
+  function pedirNombre() {
+    $("principal").hidden = true;
+    $("modal").hidden = false;
+    $("nombre-in").value = "";
+    $("comenzar").disabled = true;
+    setTimeout(() => $("nombre-in").focus(), 50);
+  }
+
+  function nuevoRegistro(nombre) {
+    const t = ahora();
+    registro = { id: null, nombre, fecha: t.fecha, hora: t.hora };
+    numCols = 1;
+    filas = LISTA_INICIAL.map((m) => ({ ...m, cantidades: [""] }));
+    mostrarPantalla();
+  }
+
+  // Pantalla inicial: pedir nombre
+  $("nombre-in").addEventListener("input", () => {
+    $("comenzar").disabled = $("nombre-in").value.trim() === "";
+  });
+  $("nombre-in").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && $("nombre-in").value.trim() !== "") $("comenzar").click();
+  });
+  $("comenzar").addEventListener("click", () => {
+    const nombre = $("nombre-in").value.trim();
+    if (nombre === "") return;
+    nuevoRegistro(nombre);
+  });
+
+  // Líquido: el efectivo inicial se guarda en el teléfono
+  $("liq-inicial").value = (() => {
+    try { return localStorage.getItem(CLAVE_LIQ) || ""; } catch (e) { return ""; }
+  })();
+  $("liq-inicial").addEventListener("input", () => {
+    try { localStorage.setItem(CLAVE_LIQ, $("liq-inicial").value); } catch (e) {}
+    renderLiquido();
+  });
+
+  // Edición en vivo sin volver a dibujar la tabla (así no se pierde el foco)
+  $("filas").addEventListener("input", (e) => {
+    const t = e.target;
+    if (t.tagName === "SELECT") return;
+    const i = t.dataset.i;
+    if (i === undefined) return;
+    if (t.dataset.j !== undefined) {
+      filas[i].cantidades[t.dataset.j] = t.value;
+    } else if (t.dataset.c === "material") {
+      filas[i].material = t.value;
+    } else if (t.dataset.c === "precio") {
+      filas[i].precio = n(t.value);
+    }
+    recalcular();
+  });
+
+  $("filas").addEventListener("change", (e) => {
+    if (e.target.tagName !== "SELECT") return;
+    filas[e.target.dataset.i].precio = n(e.target.value);
+    recalcular();
+  });
+
+  $("filas").addEventListener("click", (e) => {
+    const i = e.target.dataset.del;
+    if (i === undefined) return;
+    filas.splice(Number(i), 1);
+    if (filas.length === 0) filas.push({ material: "", precio: 0, cantidades: Array(numCols).fill("") });
+    render();
+  });
+
+  $("cabecera").addEventListener("click", (e) => {
+    if (e.target.id !== "mas") return;
+    numCols++;
+    filas.forEach((f) => f.cantidades.push(""));
+    render();
+  });
+
+  $("agregar").addEventListener("click", () => {
+    filas.push({ material: "", precio: 0, cantidades: Array(numCols).fill("") });
+    render();
+  });
+
+  // Nuevo registro: guarda automáticamente el actual y empieza uno limpio.
+  $("nuevo").addEventListener("click", () => {
+    if (hayCantidades()) guardarActual();
+    $("seccion-registros").hidden = true;
+    pedirNombre();
+  });
+
+  // Botón Registro: muestra u oculta la lista de todos los registros.
+  $("ver-registros").addEventListener("click", () => {
+    const sec = $("seccion-registros");
+    sec.hidden = !sec.hidden;
+    if (!sec.hidden) {
+      mostrarGuardados();
+      sec.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+
+  $("guardados").addEventListener("click", (e) => {
+    const cargar = e.target.dataset.cargar;
+    const eliminar = e.target.dataset.eliminar;
+    if (cargar !== undefined) {
+      const r = leerRegistros().find((x) => String(x.id) === cargar);
+      if (!r) return;
+      registro = { id: r.id, nombre: r.nombre, fecha: r.fecha, hora: r.hora };
+      numCols = r.numCols;
+      filas = r.filas;
+      $("seccion-registros").hidden = true;
+      mostrarPantalla();
+      window.scrollTo(0, 0);
+    }
+    if (eliminar !== undefined) {
+      if (!confirm("¿Eliminar este registro guardado?")) return;
+      escribirRegistros(leerRegistros().filter((x) => String(x.id) !== eliminar));
+      if (registro && String(registro.id) === eliminar) registro.id = null;
+      mostrarGuardados();
+    }
+  });
+
+  $("borrar").addEventListener("click", () => {
+    if (!confirm("¿Poner en cero todas las cantidades?")) return;
+    filas.forEach((f) => (f.cantidades = f.cantidades.map(() => "")));
+    render();
+  });
+
+  $("descargar").addEventListener("click", () => {
+    const esc = (t) => `"${String(t).replace(/"/g, '""')}"`;
+    const encabezado = ["Material"];
+    for (let j = 0; j < numCols; j++) encabezado.push(`Cantidad ${j + 1}`);
+    encabezado.push("Precio unitario", "Subtotal");
+    const lineas = [
+      `Nombre,${esc(registro.nombre)}`,
+      `Fecha,${esc(registro.fecha + " " + registro.hora)}`,
+      "",
+      encabezado.join(",")
+    ];
+    filas.forEach((f) => {
+      const cants = f.cantidades.map((c) => n(c));
+      lineas.push([esc(f.material), ...cants, f.precio, fmt(suma(cants) * n(f.precio))].join(","));
+    });
+    lineas.push("");
+    lineas.push(`Total,,,,${fmt(totalActual())}`);
+    const blob = new Blob(["\uFEFF" + lineas.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `calculo_${registro.nombre.replace(/\s+/g, "_")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+
+  // Al abrir la app, siempre se pide el nombre antes de llenar la hoja.
+  pedirNombre();
+</script>
+</body>
+</html>
