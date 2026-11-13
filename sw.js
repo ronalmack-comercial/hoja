@@ -1,4 +1,4 @@
-const CACHE = "hoja-v20";
+const CACHE = "hoja-v21";
 const ARCHIVOS = ["./", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (e) => {

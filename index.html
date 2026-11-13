@@ -49,6 +49,7 @@
   .acciones { display:flex; flex-wrap:wrap; gap:8px; }
   button.boton { padding:10px 14px; border-radius:8px; border:1px solid var(--verde); background:#fff; color:var(--verde); font-size:.95rem; cursor:pointer; }
   button.principal { background:var(--verde); color:#fff; }
+  button.amarillo { background:#f7d117; color:#1b1b1b; border-color:#d4b000; font-weight:600; }
   button.peligro { border-color:var(--rojo); color:var(--rojo); }
   button.pequeno { padding:5px 10px; font-size:.85rem; }
   .guardado { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; background:#fff; border:1px solid var(--borde); border-radius:8px; padding:8px 10px; margin-bottom:6px; }
@@ -100,8 +101,8 @@
   </div>
 
   <div class="acciones">
+    <button id="nuevo" class="boton amarillo">Nuevo registro</button>
     <button id="agregar" class="boton principal">+ Agregar fila</button>
-    <button id="nuevo" class="boton">Nuevo registro</button>
     <button id="descargar" class="boton">Descargar CSV</button>
     <button id="borrar" class="boton peligro">Borrar cantidades</button>
     <button id="ver-registros" class="boton">Registro</button>
